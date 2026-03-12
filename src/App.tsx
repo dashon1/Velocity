@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Zap, Twitter, Linkedin, Instagram, Video, Youtube, Facebook, Copy, Check, Sparkles, Crown, Star, Flame } from 'lucide-react'
+import { Zap, Twitter, Linkedin, Instagram, Video, Youtube, Facebook, Copy, Check, Sparkles, Crown, Flame } from 'lucide-react'
 import OpenAI from 'openai'
 
 type ContentType = 'tweet' | 'linkedin' | 'instagram' | 'video' | 'youtube' | 'facebook'
@@ -33,8 +33,8 @@ function App() {
   const [generating, setGenerating] = useState(false)
   const [dailyLimit, setDailyLimit] = useState(5)
   const [showDemo, setShowDemo] = useState(true)
-  const [saved, setSaved] = useState<number[]>([])
-  const [processingPayment, setProcessingPayment] = useState(false)
+  const [_saved, _setSaved] = useState<number[]>([])
+  const [_processingPayment, _setProcessingPayment] = useState(false)
   const [paymentSuccess, setPaymentSuccess] = useState(false)
   const [showApiKey, setShowApiKey] = useState(false)
   const [apiKey, setApiKey] = useState(() => localStorage.getItem('openai_api_key') || '')
