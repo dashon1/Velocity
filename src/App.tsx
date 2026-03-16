@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Zap, Twitter, Linkedin, Instagram, Video, Youtube, Facebook, Copy, Check, Sparkles, Crown, Star, Flame } from 'lucide-react'
+import { Zap, Twitter, Linkedin, Instagram, Video, Youtube, Facebook, Copy, Check, Sparkles, Crown, Star, Flame, Sun, Moon } from 'lucide-react'
 import OpenAI from 'openai'
 
 type ContentType = 'tweet' | 'linkedin' | 'instagram' | 'video' | 'youtube' | 'facebook'
@@ -33,11 +33,24 @@ function App() {
   const [generating, setGenerating] = useState(false)
   const [dailyLimit, setDailyLimit] = useState(5)
   const [showDemo, setShowDemo] = useState(true)
-  const [saved, setSaved] = useState<number[]>([])
-  const [processingPayment, setProcessingPayment] = useState(false)
   const [paymentSuccess, setPaymentSuccess] = useState(false)
-  const [showApiKey, setShowApiKey] = useState(false)
-  const [apiKey, setApiKey] = useState(() => localStorage.getItem('openai_api_key') || '')
+  const apiKey = import.meta.env.VITE_OPENAI_API_KEY || localStorage.getItem('openai_api_key') || ''
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    if (typeof window !== 'undefined') {
+      return document.documentElement.classList.contains('dark') ? 'dark' : 'light'
+    }
+    return 'dark'
+  })
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light'
+    setTheme(newTheme)
+    if (newTheme === 'dark') {
+      document.documentElement.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+    }
+  }
 
   const contentTypes = [
     { id: 'tweet', icon: Twitter, label: 'Tweet', color: 'text-blue-400' },
@@ -50,15 +63,19 @@ function App() {
 
   const generateContent = async () => {
     if (!isPremium && dailyLimit <= 0) { setShowUpgrade(true); return }
+    const key = import.meta.env.VITE_OPENAI_API_KEY || apiKey;
+    if (!key) {
+      console.error('API key missing. Please check your .env file.')
+      return
+    }
     setGenerating(true)
     setShowDemo(false)
     
     let content = ''
     
-    const storedApiKey = localStorage.getItem('openai_api_key')
-    if (storedApiKey && topic.trim()) {
+    if (key && topic.trim()) {
       try {
-        const openai = new OpenAI({ apiKey: storedApiKey, dangerouslyAllowBrowser: true })
+        const openai = new OpenAI({ apiKey: key, dangerouslyAllowBrowser: true })
         const platformNames: Record<ContentType, string> = {
           tweet: 'Twitter/X (280 chars)',
           linkedin: 'LinkedIn',
@@ -97,23 +114,37 @@ function App() {
     setTimeout(() => setCopied(null), 2000)
   }
   
-  const saveApiKey = () => { localStorage.setItem('openai_api_key', apiKey); setShowApiKey(false) }
+
+  const viralHooks = [
+    "I just made $X in 24 hours. Here's exact...",
+    "Stop doing this if you want to grow...",
+    "The 3 AM realization that changed my bus...",
+    "Hot take: Most people are wrong about..."
+  ]
+
+  const testimonials = [
+    { name: "Sarah K.", role: "Content Creator", content: "Generated 10 viral tweets in 5 minutes. Game changer!", avatar: "SK" },
+    { name: "Mike R.", role: "Founder", content: "Saved 2 hours every day on content. Worth every penny.", avatar: "MR" },
+    { name: "Lisa M.", role: "Social Media Manager", content: "My clients love the content quality. Highly recommend!", avatar: "LM" }
+  ]
 
   return (
-    <div className="min-h-screen bg-[#0a0a0f] text-white">
+    <div className="min-h-screen bg-background text-foreground selection:bg-indigo-500/30 transition-colors duration-300">
       {paymentSuccess && (<motion.div initial={{opacity:0,y:-100}} animate={{opacity:1,y:0}} className="fixed top-6 left-1/2 -translate-x-1/2 z-50 px-6 py-4 bg-green-500/20 border border-green-500/50 rounded-xl flex items-center gap-3"><Check className="w-5 h-5 text-green-400"/><span>Welcome to Pro!</span></motion.div>)}
       
-      <header className="border-b border-[#1e1e2e] bg-[#12121a]/80 backdrop-blur-xl sticky top-0 z-50">
+      <header className="border-b border-border bg-background/80 backdrop-blur-xl sticky top-0 z-50 transition-colors">
         <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center"><Zap className="w-6 h-6 text-white"/></div>
             <span className="text-xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">Velocity</span>
           </div>
           <div className="flex items-center gap-4">
-            <button onClick={()=>setShowApiKey(true)} className="text-gray-400 hover:text-white text-sm">API Key</button>
-            <button onClick={()=>setShowPricing(true)} className="text-gray-400 hover:text-white text-sm">Pricing</button>
-            {!isPremium && <button onClick={()=>setShowUpgrade(true)} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 rounded-lg font-medium text-sm"><Crown className="w-4 h-4"/>Upgrade</button>}
-            {isPremium && <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 rounded-lg font-medium text-sm"><Crown className="w-4 h-4"/>Pro</div>}
+            <button onClick={toggleTheme} className="p-2 rounded-lg bg-card text-muted hover:text-indigo-500 transition-colors">
+              {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+            </button>
+            <button onClick={()=>setShowPricing(true)} className="text-muted hover:text-indigo-500 text-sm font-medium">Pricing</button>
+            {!isPremium && <button onClick={()=>setShowUpgrade(true)} className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 rounded-lg font-medium text-sm text-white transition-transform active:scale-95 shadow-lg shadow-orange-500/20"><Crown className="w-4 h-4"/>Upgrade</button>}
+            {isPremium && <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 rounded-lg font-medium text-sm text-white"><Crown className="w-4 h-4"/>Pro</div>}
           </div>
         </div>
       </header>
@@ -121,76 +152,119 @@ function App() {
       <main className="max-w-6xl mx-auto px-6 py-12">
         <div className="text-center mb-16">
           <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-sm mb-6"><Sparkles className="w-4 h-4"/>AI-Powered Content Generator</motion.div>
-          <motion.h1 initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay:0.1}} className="text-5xl md:text-6xl font-bold mb-6">Create viral content in <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">seconds</span></motion.h1>
-          <motion.p initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay:0.2}} className="text-xl text-gray-400 max-w-2xl mx-auto mb-8">Stop staring at blank screens. Generate scroll-stopping content for Twitter, LinkedIn, Instagram, YouTube, and more.</motion.p>
-          {!isPremium && <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#12121a] rounded-full border border-[#1e1e2e] text-sm"><span className="text-gray-400">Free:</span><span className="text-indigo-400 font-medium">{dailyLimit} left</span></div>}
-          {isPremium && <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/30 rounded-full text-sm"><Sparkles className="w-4 h-4 text-amber-400"/><span className="text-amber-400 font-medium">Unlimited</span></div>}
+          <motion.h1 initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay:0.1}} className="text-5xl md:text-7xl font-bold mb-6 tracking-tight">Create viral content in <span className="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">seconds</span></motion.h1>
+          <motion.p initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay:0.2}} className="text-xl text-muted max-w-2xl mx-auto mb-8">Stop staring at blank screens. Generate scroll-stopping content for Twitter, LinkedIn, Instagram, YouTube, and more.</motion.p>
+          
+          <div className="flex flex-col items-center gap-6">
+            {!isPremium && <div className="inline-flex items-center gap-2 px-3 py-1 bg-card rounded-full border border-border text-[10px] uppercase tracking-wider"><span className="text-muted">Free:</span><span className="text-indigo-400 font-bold">{dailyLimit} left</span></div>}
+            {isPremium && <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/30 rounded-full text-sm"><Sparkles className="w-4 h-4 text-amber-400"/><span className="text-amber-400 font-medium">Unlimited</span></div>}
+            
+            <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay:0.25}} className="flex flex-wrap justify-center gap-12">
+              <div className="text-center"><div className="text-4xl font-bold mb-1">10K+</div><div className="text-muted text-xs uppercase tracking-widest">Active Users</div></div>
+              <div className="text-center"><div className="text-4xl font-bold mb-1">500K+</div><div className="text-muted text-xs uppercase tracking-widest">Content Generated</div></div>
+              <div className="text-center"><div className="text-4xl font-bold mb-1">98%</div><div className="text-muted text-xs uppercase tracking-widest">Satisfaction</div></div>
+            </motion.div>
+          </div>
         </div>
 
-        <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay:0.25}} className="flex flex-wrap justify-center gap-8 mb-12">
-          <div className="text-center"><div className="text-3xl font-bold text-indigo-400">10K+</div><div className="text-gray-500 text-sm">Active Users</div></div>
-          <div className="text-center"><div className="text-3xl font-bold text-purple-400">500K+</div><div className="text-gray-500 text-sm">Content Generated</div></div>
-          <div className="text-center"><div className="text-3xl font-bold text-pink-400">98%</div><div className="text-gray-500 text-sm">Satisfaction</div></div>
-        </motion.div>
+        <div className="max-w-4xl mx-auto mb-20">
+          <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay:0.3}} className="flex flex-wrap justify-center gap-3 mb-10">
+            {contentTypes.map(t => (<button key={t.id} onClick={()=>setContentType(t.id as ContentType)} className={`flex items-center gap-2 px-6 py-3 rounded-2xl border transition-all duration-300 ${contentType===t.id?'bg-indigo-500/10 border-indigo-500/50 text-foreground shadow-[0_0_20px_rgba(99,102,241,0.15)]':'bg-card border-border text-muted hover:border-indigo-500/30 hover:text-foreground'}`}><t.icon className={`w-5 h-5 ${t.color}`}/><span className="font-semibold text-sm">{t.label}</span></button>))}
+          </motion.div>
 
-        <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay:0.3}} className="flex flex-wrap justify-center gap-3 mb-6">
-          {contentTypes.map(t => (<button key={t.id} onClick={()=>setContentType(t.id as ContentType)} className={`flex items-center gap-2 px-5 py-3 rounded-xl border transition-all ${contentType===t.id?'bg-indigo-500/20 border-indigo-500 text-white':'bg-[#12121a] border-[#1e1e2e] text-gray-400'}`}><t.icon className={`w-5 h-5 ${t.color}`}/><span className="font-medium">{t.label}</span></button>))}
-        </motion.div>
+          <div className="space-y-10">
+              <div className="flex items-center gap-2 text-muted text-[10px] font-bold uppercase tracking-widest"><Flame className="w-4 h-4 text-orange-400"/>Trending:</div>
+              {['AI Tools', 'Startup', 'Marketing', 'Productivity', 'Growth', 'Side Project'].map(t => (<button key={t} onClick={()=>setTopic(t)} className="px-4 py-1.5 rounded-full bg-card border border-border text-muted text-xs hover:border-indigo-500/50 hover:text-foreground transition-all">{t}</button>))}
 
-        <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay:0.35}} className="flex flex-wrap justify-center gap-2 mb-6">
-          <div className="flex items-center gap-2 text-gray-500 text-sm mr-2"><Flame className="w-4 h-4 text-orange-400"/>Trending:</div>
-          {['AI Tools', 'Startup', 'Marketing', 'Productivity'].map(t => (<button key={t} onClick={()=>setTopic(t)} className="px-3 py-1 rounded-full bg-[#12121a] border border-[#1e1e2e] text-gray-400 text-sm hover:border-indigo-500 hover:text-white transition-all">{t}</button>))}
-        </motion.div>
+            <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay:0.38}} className="text-center">
+              <div className="flex items-center justify-center gap-2 text-muted text-[10px] font-bold uppercase mb-4 tracking-widest"><Sparkles className="w-3 h-3 text-amber-400"/> Or try a viral hook:</div>
+              <div className="flex flex-wrap justify-center gap-2 max-w-2xl mx-auto">
+                {viralHooks.map(h => (
+                  <button key={h} onClick={()=>setTopic(h)} className="px-5 py-2.5 rounded-xl bg-card border border-border text-muted text-[11px] hover:border-indigo-500/50 hover:text-foreground transition-all italic hover:bg-white/5">"{h}"</button>
+                ))}
+              </div>
+            </motion.div>
 
-        <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay:0.4}} className="max-w-2xl mx-auto mb-12">
-          <div className="relative">
-            <input type="text" value={topic} onChange={e=>setTopic(e.target.value)} placeholder="What do you want to write about?" className="w-full px-6 py-4 bg-[#12121a] border border-[#1e1e2e] rounded-2xl text-lg placeholder-gray-500 focus:outline-none focus:border-indigo-500 pr-36" onKeyDown={e=>e.key==='Enter'&&generateContent()}/>
-            <button onClick={generateContent} disabled={generating} className="absolute right-2 top-1/2 -translate-y-1/2 px-6 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl font-medium hover:from-indigo-400 hover:to-purple-500 transition-all disabled:opacity-50 flex items-center gap-2">
-              {generating?(<><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Generating...</>):(<><Zap className="w-4 h-4"/>Generate</>)}
-            </button>
+            <motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} transition={{delay:0.4}} className="relative group">
+              <input type="text" value={topic} onChange={e=>setTopic(e.target.value)} placeholder="What do you want to write about?" className="w-full px-8 py-5 bg-card border border-border rounded-3xl text-lg placeholder-muted focus:outline-none focus:border-indigo-500 transition-all pr-44 shadow-2xl group-hover:border-indigo-500/30" onKeyDown={e=>e.key==='Enter'&&generateContent()}/>
+              <button onClick={generateContent} disabled={generating} className="absolute right-3 top-1/2 -translate-y-1/2 px-8 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl font-bold hover:shadow-[0_0_20px_rgba(99,102,241,0.4)] transition-all disabled:opacity-50 flex items-center gap-2 active:scale-95">
+                {generating?(<><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"/>Generating...</>):(<><Zap className="w-4 h-4"/>Generate</>)}
+              </button>
+            </motion.div>
           </div>
-        </motion.div>
+        </div>
 
-        {showDemo && (<motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} exit={{opacity:0}} className="max-w-2xl mx-auto mb-12"><div className="bg-[#12121a] border border-[#1e1e2e] rounded-2xl p-6"><div className="flex items-center gap-2 text-amber-400 mb-4"><Sparkles className="w-4 h-4"/><span className="text-sm font-medium">Try it! Click Generate</span></div><div className="space-y-4">{DEMO_CONTENT.tweet.slice(0,2).map((c,i)=>(<div key={i} className="p-4 bg-[#0a0a0f] rounded-xl border border-[#1e1e2e]"><p className="text-gray-300 text-sm whitespace-pre-wrap">{c}</p></div>))}</div></div></motion.div>)}
+        {showDemo && (<motion.div initial={{opacity:0,y:20}} animate={{opacity:1,y:0}} exit={{opacity:0}} className="max-w-2xl mx-auto mb-32"><div className="bg-card/50 border border-border rounded-3xl p-8 backdrop-blur-sm"><div className="flex items-center gap-2 text-amber-400 mb-6"><Sparkles className="w-4 h-4"/><span className="text-xs font-bold uppercase tracking-widest">Try it! Click Generate</span></div><div className="space-y-6">{DEMO_CONTENT.tweet.slice(0,2).map((c,i)=>(<div key={i} className="p-6 bg-background rounded-2xl border border-border"><p className="text-muted text-sm leading-relaxed whitespace-pre-wrap">{c}</p></div>))}</div></div></motion.div>)}
 
         {generated.length > 0 && (
-          <div className="max-w-2xl mx-auto space-y-4">
+          <div className="max-w-2xl mx-auto space-y-6 mb-32">
             {generated.map(item => (
-              <div key={item.id} className="bg-[#12121a] border border-[#1e1e2e] rounded-2xl p-6" style={{overflow: 'visible'}}>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    {item.type === 'tweet' && <Twitter className="w-4 h-4 text-blue-400"/>}
-                    {item.type === 'linkedin' && <Linkedin className="w-4 h-4 text-blue-600"/>}
-                    {item.type === 'instagram' && <Instagram className="w-4 h-4 text-pink-400"/>}
-                    {item.type === 'video' && <Video className="w-4 h-4 text-purple-400"/>}
-                    {item.type === 'youtube' && <Youtube className="w-4 h-4 text-red-400"/>}
-                    {item.type === 'facebook' && <Facebook className="w-4 h-4 text-blue-500"/>}
-                    <span className="text-gray-400 text-sm capitalize">{item.type}</span>
+              <motion.div initial={{opacity:0,scale:0.95}} animate={{opacity:1,scale:1}} key={item.id} className="bg-card border border-border rounded-3xl p-8 shadow-xl">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-background border border-border flex items-center justify-center">
+                      {item.type === 'tweet' && <Twitter className="w-4 h-4 text-blue-400"/>}
+                      {item.type === 'linkedin' && <Linkedin className="w-4 h-4 text-blue-600"/>}
+                      {item.type === 'instagram' && <Instagram className="w-4 h-4 text-pink-400"/>}
+                      {item.type === 'video' && <Video className="w-4 h-4 text-purple-400"/>}
+                      {item.type === 'youtube' && <Youtube className="w-4 h-4 text-red-400"/>}
+                      {item.type === 'facebook' && <Facebook className="w-4 h-4 text-blue-500"/>}
+                    </div>
+                    <span className="text-gray-400 text-xs font-bold uppercase tracking-widest">{item.type}</span>
                   </div>
-                  {item.likes && <div className="flex items-center gap-1 text-gray-500 text-sm"><span>♥</span>{item.likes}</div>}
+                  {item.likes && <div className="flex items-center gap-1.5 text-muted text-xs"><span>❤</span>{item.likes}</div>}
                 </div>
-                <div className="text-white whitespace-pre-wrap mb-4" style={{wordBreak: 'break-word'}}>{item.content}</div>
-                <div className="flex items-center gap-2 pt-4 border-t border-[#1e1e2e]">
-                  <button onClick={()=>copyToClipboard(item.content,item.id)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#0a0a0f] border border-[#1e1e2e] text-gray-400 text-sm hover:text-white">
-                    {copied === item.id ? <><Check className="w-4 h-4 text-green-400"/>Copied!</> : <><Copy className="w-4 h-4"/>Copy</>}
+                <div className="text-foreground text-base leading-relaxed whitespace-pre-wrap mb-6">{item.content}</div>
+                <div className="flex items-center gap-3 pt-6 border-t border-border">
+                  <button onClick={()=>copyToClipboard(item.content,item.id)} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-background border border-border text-muted text-xs font-semibold hover:text-foreground hover:border-indigo-500/30 transition-all">
+                    {copied === item.id ? <><Check className="w-3.5 h-3.5 text-green-400"/>Copied!</> : <><Copy className="w-3.5 h-3.5"/>Copy</>}
                   </button>
+                  <button className="flex items-center gap-2 px-4 py-2 rounded-xl bg-background border border-border text-muted text-xs font-semibold hover:text-foreground transition-all"><Star className="w-3.5 h-3.5"/>Save</button>
                 </div>
-              </div>
+              </motion.div>
             ))}
           </div>
         )}
+
+        {/* Testimonials */}
+        <div className="mb-32">
+          <h2 className="text-2xl font-bold text-center mb-12">Loved by <span className="text-indigo-400">10,000+</span> creators</h2>
+          <div className="grid md:grid-cols-3 gap-8">
+            {testimonials.map((t,i) => (
+              <motion.div initial={{opacity:0,y:20}} whileInView={{opacity:1,y:0}} viewport={{once:true}} transition={{delay:i*0.1}} key={i} className="bg-card border border-border rounded-3xl p-8">
+                <div className="flex gap-1 text-amber-400 mb-4">{[...Array(5)].map((_,j)=>(<Star key={j} className="w-4 h-4 fill-current"/>))}</div>
+                <p className="text-muted text-sm italic mb-8 leading-relaxed">"{t.content}"</p>
+                <div className="flex items-center gap-4">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xs font-bold">{t.avatar}</div>
+                  <div>
+                    <div className="text-sm font-bold">{t.name}</div>
+                    <div className="text-xs text-gray-500">{t.role}</div>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+
+        {/* Pro CTA */}
+        <motion.div initial={{opacity:0,scale:0.95}} whileInView={{opacity:1,scale:1}} viewport={{once:true}} className="max-w-4xl mx-auto rounded-[3rem] bg-card border border-indigo-500/20 p-12 text-center relative overflow-hidden group">
+          <div className="absolute inset-0 bg-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"/>
+          <h2 className="text-4xl font-bold mb-4 relative z-10">Ready to go <span className="text-indigo-400">pro?</span></h2>
+          <p className="text-muted mb-10 relative z-10">Unlock unlimited generations and premium features.</p>
+          <button onClick={()=>setShowUpgrade(true)} className="px-10 py-4 bg-gradient-to-r from-amber-500 to-orange-500 rounded-2xl font-black uppercase tracking-widest text-sm relative z-10 hover:shadow-[0_0_30px_rgba(245,158,11,0.3)] transition-all active:scale-95 flex items-center gap-3 mx-auto"><Crown className="w-5 h-5"/>Upgrade - $19/mo</button>
+        </motion.div>
       </main>
 
       {showPricing && (<div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6" onClick={()=>setShowPricing(false)}>
-        <div className="bg-[#12121a] border border-[#1e1e2e] rounded-3xl p-8 max-w-4xl w-full" onClick={e=>e.stopPropagation()}>
+        <div className="bg-card border border-border rounded-3xl p-8 max-w-4xl w-full" onClick={e=>e.stopPropagation()}>
           <h2 className="text-3xl font-bold text-center mb-8">Simple Pricing</h2>
           <div className="grid md:grid-cols-2 gap-6">
-            <div className="bg-[#0a0a0f] border border-[#1e1e2e] rounded-2xl p-6">
+            <div className="bg-background border border-border rounded-2xl p-6">
               <h3 className="text-xl font-bold mb-2">Free</h3>
               <div className="mb-6"><span className="text-4xl font-bold">\$0</span><span className="text-gray-400">/forever</span></div>
               <ul className="space-y-3 mb-6"><li className="flex items-center gap-2 text-gray-300"><Check className="w-4 h-4 text-green-400"/>5 generations/day</li><li className="flex items-center gap-2 text-gray-300"><Check className="w-4 h-4 text-green-400"/>All content types</li></ul>
             </div>
-            <div className="bg-[#0a0a0f] border border-indigo-500 rounded-2xl p-6 relative">
+            <div className="bg-background border border-indigo-500 rounded-2xl p-6 relative">
               <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-indigo-500 rounded-full text-xs font-medium">Most Popular</div>
               <h3 className="text-xl font-bold mb-2">Pro</h3>
               <div className="mb-6"><span className="text-4xl font-bold">\$19</span><span className="text-gray-400">/month</span></div>
@@ -202,26 +276,29 @@ function App() {
       </div>)}
 
       {showUpgrade && (<div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6" onClick={()=>setShowUpgrade(false)}>
-        <div className="bg-[#12121a] border border-[#1e1e2e] rounded-3xl p-8 max-w-md w-full text-center" onClick={e=>e.stopPropagation()}>
+        <div className="bg-card border border-border rounded-3xl p-8 max-w-md w-full text-center" onClick={e=>e.stopPropagation()}>
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center mx-auto mb-4"><Crown className="w-8 h-8 text-white"/></div>
           <h2 className="text-2xl font-bold mb-2">Upgrade to Pro</h2>
-          <p className="text-gray-400 mb-6">\$19/month for unlimited everything</p>
+          <p className="text-muted mb-6">\$19/month for unlimited everything</p>
           <button onClick={()=>{setIsPremium(true); setShowUpgrade(false); setPaymentSuccess(true); setTimeout(()=>setPaymentSuccess(false),5000)}} className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl font-bold">Upgrade Now - \$19/mo</button>
           <button onClick={()=>setShowUpgrade(false)} className="w-full mt-4 text-gray-400">Maybe later</button>
         </div>
       </div>)}
-
-      {showApiKey && (<div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-6" onClick={()=>setShowApiKey(false)}>
-        <div className="bg-[#12121a] border border-[#1e1e2e] rounded-3xl p-8 max-w-md w-full" onClick={e=>e.stopPropagation()}>
-          <h2 className="text-2xl font-bold mb-2">OpenAI API Key</h2>
-          <p className="text-gray-400 mb-4 text-sm">Enter your OpenAI API key to enable AI-generated content. Get one at <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className="text-indigo-400 underline">platform.openai.com</a></p>
-          <input type="password" value={apiKey} onChange={e=>setApiKey(e.target.value)} placeholder="sk-..." className="w-full px-4 py-3 bg-[#0a0a0f] border border-[#1e1e2e] rounded-xl text-white mb-4"/>
-          <button onClick={saveApiKey} className="w-full py-3 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-xl font-bold mb-2">Save Key</button>
-          <button onClick={()=>setShowApiKey(false)} className="w-full text-gray-400">Cancel</button>
+      <footer className="border-t border-border py-12 mt-20 bg-card/50 transition-colors">
+        <div className="max-w-6xl mx-auto px-6 flex flex-col items-center gap-6">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg bg-indigo-500/10 flex items-center justify-center"><Zap className="w-3.5 h-3.5 text-indigo-400"/></div>
+            <span className="text-sm font-bold text-muted">Velocity</span>
+          </div>
+          <p className="text-muted text-[10px] uppercase tracking-[0.2em]">2024 Velocity. AI Content Generator.</p>
+          
+          <div className="flex items-center gap-2 text-[10px] text-muted bg-card px-4 py-2 rounded-full border border-border shadow-sm group hover:border-indigo-500/20 transition-all">
+            <span className="opacity-60">Created by</span>
+            <span className="font-bold text-foreground group-hover:text-indigo-500 transition-colors">AI Microtechlink</span>
+            <div className="w-1 h-1 rounded-full bg-indigo-500 animate-pulse"/>
+          </div>
         </div>
-      </div>)}
-
-      <footer className="border-t border-[#1e1e2e] py-8 mt-20"><div className="max-w-6xl mx-auto px-6 text-center text-gray-500 text-sm"><p>2024 Velocity. AI Content Generator.</p></div></footer>
+      </footer>
     </div>
   )
 }
