@@ -60,14 +60,10 @@ function App() {
     { id: 'youtube', icon: Youtube, label: 'YouTube', color: 'text-red-400' },
     { id: 'facebook', icon: Facebook, label: 'Facebook', color: 'text-blue-500' },
   ]
-
   const generateContent = async () => {
     if (!isPremium && dailyLimit <= 0) { setShowUpgrade(true); return }
     const key = import.meta.env.VITE_OPENAI_API_KEY || apiKey;
-    if (!key) {
-      console.error('API key missing. Please check your .env file.')
-      return
-    }
+    
     setGenerating(true)
     setShowDemo(false)
     
@@ -90,7 +86,9 @@ function App() {
           max_tokens: 500
         })
         content = response.choices[0]?.message?.content || ''
-      } catch (e) { console.log('OpenAI error, using demo content') }
+      } catch (e) { 
+        console.error('OpenAI error:', e)
+      }
     }
     
     if (!content.trim()) {
