@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Zap, Twitter, Linkedin, Instagram, Video, Youtube, Facebook, Copy, Check, Sparkles, Crown, Star, Flame, Sun, Moon } from 'lucide-react'
-import OpenAI from 'openai'
 
 type ContentType = 'tweet' | 'linkedin' | 'instagram' | 'video' | 'youtube' | 'facebook'
 
@@ -27,14 +26,25 @@ function App() {
   const [topic, setTopic] = useState('')
   const [generated, setGenerated] = useState<GeneratedContent[]>([])
   const [copied, setCopied] = useState<number | null>(null)
-  const [isPremium, setIsPremium] = useState(false)
+  const [isPremium, setIsPremium] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('isPremium') === 'true'
+    }
+    return false
+  })
   const [showUpgrade, setShowUpgrade] = useState(false)
   const [showPricing, setShowPricing] = useState(false)
   const [generating, setGenerating] = useState(false)
-  const [dailyLimit, setDailyLimit] = useState(5)
+  const [dailyLimit, setDailyLimit] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('dailyLimit')
+      return saved ? parseInt(saved) : 5
+    }
+    return 5
+  })
   const [showDemo, setShowDemo] = useState(true)
   const [paymentSuccess, setPaymentSuccess] = useState(false)
-  const apiKey = import.meta.env.VITE_OPENAI_API_KEY || localStorage.getItem('openai_api_key') || ''
+  
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window !== 'undefined') {
       return document.documentElement.classList.contains('dark') ? 'dark' : 'light'
@@ -60,34 +70,31 @@ function App() {
     { id: 'youtube', icon: Youtube, label: 'YouTube', color: 'text-red-400' },
     { id: 'facebook', icon: Facebook, label: 'Facebook', color: 'text-blue-500' },
   ]
+
   const generateContent = async () => {
     if (!isPremium && dailyLimit <= 0) { setShowUpgrade(true); return }
-    const key = import.meta.env.VITE_OPENAI_API_KEY || apiKey;
     
     setGenerating(true)
     setShowDemo(false)
     
     let content = ''
     
-    if (key && topic.trim()) {
+    if (topic.trim()) {
       try {
-        const openai = new OpenAI({ apiKey: key, dangerouslyAllowBrowser: true })
-        const platformNames: Record<ContentType, string> = {
-          tweet: 'Twitter/X (280 chars)',
-          linkedin: 'LinkedIn',
-          instagram: 'Instagram',
-          video: 'Reels/TikTok script',
-          youtube: 'YouTube video script',
-          facebook: 'Facebook post'
-        }
-        const response = await openai.chat.completions.create({
-          model: 'gpt-3.5-turbo',
-          messages: [{ role: 'user', content: `Write a viral ${platformNames[contentType]} post about "${topic}". Make it engaging, use appropriate formatting with line breaks. Don't use emojis. Just write compelling content.` }],
-          max_tokens: 500
+        const response = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topic, contentType }),
         })
-        content = response.choices[0]?.message?.content || ''
+        
+        if (response.ok) {
+          const data = await response.json()
+          content = data.content
+        } else {
+          console.error('API Error:', await response.text())
+        }
       } catch (e) { 
-        console.error('OpenAI error:', e)
+        console.error('Network Error:', e)
       }
     }
     
@@ -102,7 +109,11 @@ function App() {
       likes: Math.floor(Math.random() * 500) + 50
     }
     setGenerated([newContent, ...generated])
-    if (!isPremium) setDailyLimit(p => p - 1)
+    if (!isPremium) {
+      const newLimit = dailyLimit - 1
+      setDailyLimit(newLimit)
+      localStorage.setItem('dailyLimit', newLimit.toString())
+    }
     setGenerating(false)
   }
 
@@ -278,7 +289,7 @@ function App() {
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center mx-auto mb-4"><Crown className="w-8 h-8 text-white"/></div>
           <h2 className="text-2xl font-bold mb-2">Upgrade to Pro</h2>
           <p className="text-muted mb-6">\$19/month for unlimited everything</p>
-          <button onClick={()=>{setIsPremium(true); setShowUpgrade(false); setPaymentSuccess(true); setTimeout(()=>setPaymentSuccess(false),5000)}} className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl font-bold">Upgrade Now - \$19/mo</button>
+          <button onClick={()=>{setIsPremium(true); localStorage.setItem('isPremium', 'true'); setShowUpgrade(false); setPaymentSuccess(true); setTimeout(()=>setPaymentSuccess(false),5000)}} className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl font-bold">Upgrade Now - \$19/mo</button>
           <button onClick={()=>setShowUpgrade(false)} className="w-full mt-4 text-gray-400">Maybe later</button>
         </div>
       </div>)}
