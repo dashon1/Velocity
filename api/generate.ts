@@ -1,8 +1,10 @@
-import OpenAI from 'openai';
-
 export const config = {
   runtime: 'edge',
 };
+
+// Proxies content generation through the fn backend, which holds the OpenAI key.
+// No env vars needed in this project.
+const FN_BACKEND = 'https://fn.aimicrotechlink.cloud';
 
 export default async function handler(req: Request) {
   if (req.method !== 'POST') {
@@ -22,16 +24,6 @@ export default async function handler(req: Request) {
       });
     }
 
-    const apiKey = process.env.VITE_OPENAI_API_KEY;
-    if (!apiKey) {
-      return new Response(JSON.stringify({ error: 'API key not configured on server' }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    const openai = new OpenAI({ apiKey });
-
     const platformNames: Record<string, string> = {
       tweet: 'Twitter/X (280 chars)',
       linkedin: 'LinkedIn',
@@ -41,26 +33,32 @@ export default async function handler(req: Request) {
       facebook: 'Facebook post'
     };
 
-    const response = await openai.chat.completions.create({
-      model: 'gpt-3.5-turbo',
-      messages: [
-        { 
-          role: 'user', 
-          content: `Write a viral ${platformNames[contentType] || contentType} post about "${topic}". Make it engaging, use appropriate formatting with line breaks. Don't use emojis. Just write compelling content.` 
-        }
-      ],
-      max_tokens: 500,
+    const prompt = `Write a viral ${platformNames[contentType] || contentType} post about "${topic}". Make it engaging, use appropriate formatting with line breaks. Don't use emojis. Just write compelling content.`;
+
+    const r = await fetch(`${FN_BACKEND}/integrations/InvokeLLM`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt, temperature: 0.8 }),
     });
 
-    const content = response.choices[0]?.message?.content || '';
+    if (!r.ok) {
+      const detail = await r.text();
+      return new Response(JSON.stringify({ error: `Generation failed (${r.status})`, detail: detail.slice(0, 200) }), {
+        status: 502,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
 
-    return new Response(JSON.stringify({ content }), {
+    const content = await r.text().then(t => {
+      try { const j = JSON.parse(t); return typeof j === 'string' ? j : (j.output || t); } catch { return t; }
+    });
+
+    return new Response(JSON.stringify({ content: String(content).replace(/^"|"$/g, '') }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
-  } catch (error: any) {
-    console.error('API Error:', error);
-    return new Response(JSON.stringify({ error: error.message || 'Internal server error' }), {
+  } catch (error) {
+    return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });

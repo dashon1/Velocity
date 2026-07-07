@@ -44,6 +44,39 @@ function App() {
   })
   const [showDemo, setShowDemo] = useState(true)
   const [paymentSuccess, setPaymentSuccess] = useState(false)
+  const [checkoutLoading, setCheckoutLoading] = useState(false)
+
+  // Real Stripe checkout via fn backend (price: Velocity Pro $19/mo)
+  const startCheckout = async () => {
+    setCheckoutLoading(true)
+    try {
+      const r = await fetch('https://fn.aimicrotechlink.cloud/fn/createCheckoutSession', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          app: 'velocity',
+          priceId: 'price_1TL2T70xw5o9mCvnMA11BeGg',
+          success_url: window.location.origin + '/?upgraded=1',
+          cancel_url: window.location.origin,
+        }),
+      })
+      const b = await r.json()
+      if (b?.data?.url) { window.location.href = b.data.url; return }
+      alert('Could not start checkout. Please try again.')
+    } catch {
+      alert('Could not start checkout. Please try again.')
+    }
+    setCheckoutLoading(false)
+  }
+
+  // Activate Pro after returning from Stripe
+  if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('upgraded') === '1' && !isPremium) {
+    setIsPremium(true)
+    localStorage.setItem('isPremium', 'true')
+    window.history.replaceState({}, '', window.location.pathname)
+    setPaymentSuccess(true)
+    setTimeout(() => setPaymentSuccess(false), 5000)
+  }
   
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     if (typeof window !== 'undefined') {
@@ -289,7 +322,7 @@ function App() {
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center mx-auto mb-4"><Crown className="w-8 h-8 text-white"/></div>
           <h2 className="text-2xl font-bold mb-2">Upgrade to Pro</h2>
           <p className="text-muted mb-6">\$19/month for unlimited everything</p>
-          <button onClick={()=>{setIsPremium(true); localStorage.setItem('isPremium', 'true'); setShowUpgrade(false); setPaymentSuccess(true); setTimeout(()=>setPaymentSuccess(false),5000)}} className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl font-bold">Upgrade Now - \$19/mo</button>
+          <button onClick={startCheckout} disabled={checkoutLoading} className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl font-bold disabled:opacity-60">{checkoutLoading ? 'Opening checkout…' : 'Upgrade Now - $19/mo'}</button>
           <button onClick={()=>setShowUpgrade(false)} className="w-full mt-4 text-gray-400">Maybe later</button>
         </div>
       </div>)}
